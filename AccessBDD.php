@@ -1,25 +1,28 @@
 <?php
+
 include_once("ConnexionPDO.php");
 
 /**
  * Classe de construction des requêtes SQL à envoyer à la BDD
  */
-class AccessBDD {
-	
-    public $login="root";
-    public $mdp="";
-    public $bd="mediatek86";
-    public $serveur="localhost";
-    public $port="3306";	
+class AccessBDD
+{
+
+    public $login = "root";
+    public $mdp = "";
+    public $bd = "mediatek86";
+    public $serveur = "localhost";
+    public $port = "3306";
     public $conn = null;
 
     /**
      * constructeur : demande de connexion à la BDD
      */
-    public function __construct(){
-        try{
+    public function __construct()
+    {
+        try {
             $this->conn = new ConnexionPDO($this->login, $this->mdp, $this->bd, $this->serveur, $this->port);
-        }catch(Exception $e){
+        } catch (Exception $e) {
             throw $e;
         }
     }
@@ -29,28 +32,33 @@ class AccessBDD {
      * @param string $table nom de la table
      * @return lignes de la requete
      */
-    public function selectAll($table){
-        if($this->conn != null){
+    public function selectAll($table)
+    {
+        if ($this->conn != null) {
             switch ($table) {
-                case "livre" :
+                case "livre":
                     return $this->selectAllLivres();
-                case "dvd" :
+                case "dvd":
                     return $this->selectAllDvd();
-                case "revue" :
+                case "revue":
                     return $this->selectAllRevues();
-                case "exemplaire" :
-                    return $this->selectExemplairesRevue();
-                case "genre" :
-                case "public" :
-                case "rayon" :
-                case "etat" :
+                case "exemplaire":
+                    return $this->selectAllExemplaires();
+                case "commandedocument":
+                    return $this->selectAllCommandesDocument();
+                case "suivi":
+                    return $this->selectAllSuiviCommande();
+                case "genre":
+                case "public":
+                case "rayon":
+                case "etat":
                     // select portant sur une table contenant juste id et libelle
                     return $this->selectTableSimple($table);
                 default:
                     // select portant sur une table, sans condition
                     return $this->selectTable($table);
-            }			
-        }else{
+            }
+        } else {
             return null;
         }
     }
@@ -60,18 +68,23 @@ class AccessBDD {
      * @param string $table nom de la table
      * @param array $champs nom et valeur de chaque champs de recherche
      * @return lignes répondant aux critères de recherches
-     */	
-    public function select($table, $champs){
-        if($this->conn != null && $champs != null){
-            switch($table){
-                case "exemplaire" :
+     */
+    public function select($table, $champs)
+    {
+        if ($this->conn != null && $champs != null) {
+            switch ($table) {
+                case "exemplaire":
                     return $this->selectExemplairesRevue($champs['id']);
-                default:                    
+                case "commandedocument":
+                    return $this->selectCommandesDocument($champs['id']);
+                case "suivicommande":
+                    return $this->selectSuiviCommande($champs['id']);
+                default:
                     // cas d'un select sur une table avec recherche sur des champs
-                    return $this->selectTableOnConditons($table, $champs);					
-            }				
-        }else{
-                return null;
+                    return $this->selectTableOnConditons($table, $champs);
+            }
+        } else {
+            return null;
         }
     }
 
@@ -80,73 +93,79 @@ class AccessBDD {
      * @param string $table
      * @return lignes triées sur lebelle
      */
-    public function selectTableSimple($table){
-        $req = "select * from $table order by libelle;";		
-        return $this->conn->query($req);	    
+    public function selectTableSimple($table)
+    {
+        $req = "select * from $table order by libelle;";
+        return $this->conn->query($req);
     }
-    
+
     /**
      * récupération de toutes les lignes d'une table
      * @param string $table
      * @return toutes les lignes de la table
      */
-    public function selectTable($table){
-        $req = "select * from $table;";		
-        return $this->conn->query($req);        
+    public function selectTable($table)
+    {
+        $req = "select * from $table;";
+        return $this->conn->query($req);
     }
-    
+
     /**
      * récupération des lignes d'une table dont les champs concernés correspondent aux valeurs
      * @param type $table
      * @param type $champs
      * @return type
      */
-    public function selectTableOnConditons($table, $champs){
+    public function selectTableOnConditons($table, $champs)
+    {
         // construction de la requête
         $requete = "select * from $table where ";
-        foreach ($champs as $key => $value){
+        foreach ($champs as $key => $value) {
             $requete .= "$key=:$key and";
         }
         // (enlève le dernier and)
-        $requete = substr($requete, 0, strlen($requete)-3);								
-        return $this->conn->query($requete, $champs);		
+        $requete = substr($requete, 0, strlen($requete) - 3);
+        return $this->conn->query($requete, $champs);
     }
 
     /**
      * récupération de toutes les lignes de la table Livre et les tables associées
      * @return lignes de la requete
      */
-    public function selectAllLivres(){
+    public function selectAllLivres()
+    {
         $req = "Select l.id, l.ISBN, l.auteur, d.titre, d.image, l.collection, ";
         $req .= "d.idrayon, d.idpublic, d.idgenre, g.libelle as genre, p.libelle as lePublic, r.libelle as rayon ";
         $req .= "from livre l join document d on l.id=d.id ";
         $req .= "join genre g on g.id=d.idGenre ";
         $req .= "join public p on p.id=d.idPublic ";
         $req .= "join rayon r on r.id=d.idRayon ";
-        $req .= "order by titre ";		
+        $req .= "order by titre ";
         return $this->conn->query($req);
-    }	
+    }
 
     /**
      * récupération de toutes les lignes de la table DVD et les tables associées
      * @return lignes de la requete
      */
-    public function selectAllDvd(){
+    public function selectAllDvd()
+    {
         $req = "Select l.id, l.duree, l.realisateur, d.titre, d.image, l.synopsis, ";
         $req .= "d.idrayon, d.idpublic, d.idgenre, g.libelle as genre, p.libelle as lePublic, r.libelle as rayon ";
         $req .= "from dvd l join document d on l.id=d.id ";
         $req .= "join genre g on g.id=d.idGenre ";
         $req .= "join public p on p.id=d.idPublic ";
         $req .= "join rayon r on r.id=d.idRayon ";
-        $req .= "order by titre ";	
+        $req .= "order by titre ";
         return $this->conn->query($req);
-    }	
+    }
 
     /**
      * récupération de toutes les lignes de la table Revue et les tables associées
      * @return lignes de la requete
      */
-    public function selectAllRevues(){
+    public function selectAllRevues()
+    {
         $req = "Select l.id, l.periodicite, d.titre, d.image, l.delaiMiseADispo, ";
         $req .= "d.idrayon, d.idpublic, d.idgenre, g.libelle as genre, p.libelle as lePublic, r.libelle as rayon ";
         $req .= "from revue l join document d on l.id=d.id ";
@@ -155,41 +174,91 @@ class AccessBDD {
         $req .= "join rayon r on r.id=d.idRayon ";
         $req .= "order by titre ";
         return $this->conn->query($req);
-    }	
+    }
+
+    /**
+     * récupération de toutes les lignes de la table Revue et les tables associées
+     * @return lignes de la requete
+     */
+    public function selectAllExemplaires()
+    {
+        $req = "Select l.id, l.numero, l.dateAchat, l.photo, l.idEtat, d.titre, d.image ";
+        $req .= "d.idrayon, d.idpublic, d.idgenre, g.libelle as genre, p.libelle as lePublic, r.libelle as rayon ";
+        $req .= "from exemplaire l join document d on l.id=d.id ";
+        $req .= "join genre g on g.id=d.idGenre ";
+        $req .= "join public p on p.id=d.idPublic ";
+        $req .= "join rayon r on r.id=d.idRayon ";
+        $req .= "order by titre ";
+        return $this->conn->query($req);
+    }
+
+    /**
+     * récupération de toutes les lignes de la table Revue et les tables associées
+     * @return lignes de la requete
+     */
+    public function selectAllCommandesDocument()
+    {
+        $req = "Select l.id, l.montant, l.dateCommande, d.titre, d.image ";
+        $req .= "d.idrayon, d.idpublic, d.idgenre, g.libelle as genre, p.libelle as lePublic, r.libelle as rayon ";
+        $req .= "from commande l join document d on l.id=d.id ";
+        $req .= "join genre g on g.id=d.idGenre ";
+        $req .= "join public p on p.id=d.idPublic ";
+        $req .= "join rayon r on r.id=d.idRayon ";
+        $req .= "order by titre ";
+        return $this->conn->query($req);
+    }
+
+    /**
+     * récupération de toutes les lignes de la table Suivi et les tables associées
+     * @return lignes de la requete
+     */
+    public function selectAllSuiviCommande()
+    {
+        $req = "Select l.id, l.etapeSuivi, l.commandeDocumentId, d.titre, d.image ";
+        $req .= "d.idrayon, d.idpublic, d.idgenre, g.libelle as genre, p.libelle as lePublic, r.libelle as rayon ";
+        $req .= "from suivi l join document d on l.id=d.id ";
+        $req .= "join genre g on g.id=d.idGenre ";
+        $req .= "join public p on p.id=d.idPublic ";
+        $req .= "join rayon r on r.id=d.idRayon ";
+        $req .= "order by titre ";
+        return $this->conn->query($req);
+    }
 
     /**
      * récupération de tous les exemplaires d'une revue
      * @param string $id id de la revue
      * @return lignes de la requete
      */
-    public function selectExemplairesRevue($id){
+    public function selectExemplairesRevue($id)
+    {
         $param = array(
-                "id" => $id
+            "id" => $id
         );
         $req = "Select e.id, e.numero, e.dateAchat, e.photo, e.idEtat ";
         $req .= "from exemplaire e join document d on e.id=d.id ";
         $req .= "where e.id = :id ";
-        $req .= "order by e.dateAchat DESC";		
+        $req .= "order by e.dateAchat DESC";
         return $this->conn->query($req, $param);
-    }		
+    }
 
     /**
      * suppresion d'une ou plusieurs lignes dans une table
      * @param string $table nom de la table
      * @param array $champs nom et valeur de chaque champs
      * @return true si la suppression a fonctionné
-     */	
-    public function delete($table, $champs){
-        if($this->conn != null){
+     */
+    public function delete($table, $champs)
+    {
+        if ($this->conn != null) {
             // construction de la requête
             $requete = "delete from $table where ";
-            foreach ($champs as $key => $value){
+            foreach ($champs as $key => $value) {
                 $requete .= "$key=:$key and ";
             }
             // (enlève le dernier and)
-            $requete = substr($requete, 0, strlen($requete)-5);   
-            return $this->conn->execute($requete, $champs);		
-        }else{
+            $requete = substr($requete, 0, strlen($requete) - 5);
+            return $this->conn->execute($requete, $champs);
+        } else {
             return null;
         }
     }
@@ -199,28 +268,84 @@ class AccessBDD {
      * @param string $table nom de la table
      * @param array $champs nom et valeur de chaque champs de la ligne
      * @return true si l'ajout a fonctionné
-     */	
-    public function insertOne($table, $champs){
-        if($this->conn != null && $champs != null){
-            // construction de la requête
-            $requete = "insert into $table (";
-            foreach ($champs as $key => $value){
-                $requete .= "$key,";
+     */
+    public function insertOne($table, $champs)
+    {
+        if ($this->conn != null && $champs != null) {
+            switch ($table) {
+                case "commandedocument":
+                    return $this->doubleInsert($table, $champs);
+                default:
+                    // construction de la requête
+                    $requete = "insert into $table (";
+                    foreach ($champs as $key => $value) {
+                        $requete .= "$key,";
+                    }
+                    // (enlève la dernière virgule)
+                    $requete = substr($requete, 0, strlen($requete) - 1);
+                    $requete .= ") values (";
+                    foreach ($champs as $key => $value) {
+                        $requete .= ":$key,";
+                    }
+                    // (enlève la dernière virgule)
+                    $requete = substr($requete, 0, strlen($requete) - 1);
+                    $requete .= ");";
+                    return $this->conn->execute($requete, $champs);
             }
-            // (enlève la dernière virgule)
-            $requete = substr($requete, 0, strlen($requete)-1);
-            $requete .= ") values (";
-            foreach ($champs as $key => $value){
-                $requete .= ":$key,";
-            }
-            // (enlève la dernière virgule)
-            $requete = substr($requete, 0, strlen($requete)-1);
-            $requete .= ");";	
-            return $this->conn->execute($requete, $champs);		
-        }else{
+        } else {
             return null;
         }
     }
+
+
+    /**
+     * ajout d'une ligne dans deux tables
+     * @param string $table nom de la table
+     * @param array $champs nom et valeur de chaque champs de la ligne
+     * @return true si l'ajout a fonctionné
+     */
+    public function doubleInsert($table, $champs)
+    {
+        if ($this->conn != null && $champs != null && $table != null) {
+            // Tableau des champs pour la table "commande"
+            $champsCommande = array('id', 'dateCommande', 'montant');
+            // Tableau des champs pour la table "commandeDocument"
+            $champsCommandeDocument = array('idExemplaire', 'idLivreDvd', 'idSuivi');
+
+            // Séparation des champs pour chaque table
+            $champsInsertionCommande = array_intersect_key($champs, array_flip($champsCommande));
+            $champsInsertionCommandeDocument = array_intersect_key($champs, array_flip($champsCommandeDocument));
+
+            // Construction des requêtes pour la table "commande"
+            $requeteCommande = $this->construireRequeteInsertion('commande', $champsInsertionCommande);
+
+            // Construction des requêtes pour la table "commandeDocument"
+            $requeteCommandeDocument = $this->construireRequeteInsertion('commandedocument', $champsInsertionCommandeDocument);
+
+            // Exécution des requêtes
+            $this->conn->execute($requeteCommande, $champsInsertionCommande);
+            $this->conn->execute($requeteCommandeDocument, $champsInsertionCommandeDocument);
+        } else {
+            return null;
+        }
+    }
+
+    private function construireRequeteInsertion($table, $champs)
+    {
+        // Construction de la requête d'insertion
+        $requete = "INSERT INTO $table (";
+        foreach ($champs as $key => $value) {
+            $requete .= "$key,";
+        }
+        $requete = rtrim($requete, ',') . ") VALUES (";
+        foreach ($champs as $key => $value) {
+            $requete .= ":$key,";
+        }
+        $requete = rtrim($requete, ',') . ")";
+
+        return $requete;
+    }
+
 
     /**
      * modification d'une ligne dans une table
@@ -228,22 +353,58 @@ class AccessBDD {
      * @param string $id id de la ligne à modifier
      * @param array $param nom et valeur de chaque champs de la ligne
      * @return true si la modification a fonctionné
-     */	
-    public function updateOne($table, $id, $champs){
-        if($this->conn != null && $champs != null){
+     */
+    public function updateOne($table, $id, $champs)
+    {
+        if ($this->conn != null && $champs != null) {
             // construction de la requête
             $requete = "update $table set ";
-            foreach ($champs as $key => $value){
+            foreach ($champs as $key => $value) {
                 $requete .= "$key=:$key,";
             }
             // (enlève la dernière virgule)
-            $requete = substr($requete, 0, strlen($requete)-1);				
+            $requete = substr($requete, 0, strlen($requete) - 1);
             $champs["id"] = $id;
-            $requete .= " where id=:id;";				
-            return $this->conn->execute($requete, $champs);		
-        }else{
+            $requete .= " where id=:id;";
+            return $this->conn->execute($requete, $champs);
+        } else {
             return null;
         }
     }
 
+    /**
+     * récupèration des informations d'un livre sur le suivi d'une commande.
+     * @return lignes de la requete
+     */
+    public function selectCommandesDocument($id)
+    {
+        $param = array(
+            "id" => $id
+        );
+        $req = "select l.nbExemplaire, l.idLivreDvd, l.idSuivi, s.libelle, l.id, max(c.dateCommande) asdateCommande, sum(c.montant) as montant ";
+        $req .= "from commandedocument l join suivi s on s.id=l.idSuivi ";
+        $req .= "left join commande c on l.id=c.id ";
+        $req .= "where l.idLivreDvd = :id ";
+        $req .= "group by l.id ";
+        $req .= "order by dateCommande DESC";
+        return $this->conn->query($req, $param);
+    }
+
+    /**
+     * récupèration des informations d'un livre sur le suivi d'une commande.
+     * @return lignes de la requete
+     */
+    public function selectSuiviCommande($id)
+    {
+        $param = array(
+            "id" => $id
+        );
+        $req = "select l.nbExemplaire, l.idLivreDvd, l.idSuivi, s.libelle, l.id, max(c.dateCommande) asdateCommande, sum(c.montant) as montant ";
+        $req .= "from commandedocument l join suivi s on s.id=l.idSuivi ";
+        $req .= "left join commande c on l.id=c.id ";
+        $req .= "where l.idLivreDvd = :id ";
+        $req .= "group by l.id ";
+        $req .= "order by dateCommande DESC";
+        return $this->conn->query($req, $param);
+    }
 }
