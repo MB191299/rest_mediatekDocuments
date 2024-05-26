@@ -273,7 +273,7 @@ class AccessBDD
     {
         if ($this->conn != null && $champs != null) {
             switch ($table) {
-                case "commandedocument":
+                case "lacommandedocument":
                     return $this->doubleInsert($table, $champs);
                 default:
                     // construction de la requête
@@ -290,6 +290,8 @@ class AccessBDD
                     // (enlève la dernière virgule)
                     $requete = substr($requete, 0, strlen($requete) - 1);
                     $requete .= ");";
+                    echo $requete;
+
                     return $this->conn->execute($requete, $champs);
             }
         } else {
@@ -308,23 +310,52 @@ class AccessBDD
     {
         if ($this->conn != null && $champs != null && $table != null) {
             // Tableau des champs pour la table "commande"
-            $champsCommande = array('id', 'dateCommande', 'montant');
-            // Tableau des champs pour la table "commandeDocument"
-            $champsCommandeDocument = array('idExemplaire', 'idLivreDvd', 'idSuivi');
+            $champsCommande = ['id' => $champs['Id'], 'dateCommande' => $champs['DateCmd'], 'montant' => $champs['Montant']];
+            $champsCommandeDoc = ['id' => $champs['Idb'], 'nbExemplaire' => $champs['NbExemplaires'], 'IdLivreDvd' => $champs['IdLivreDvd'], 'idSuivi' => $champs['IdSuivi']];
+            return $this->insertOne('commandedocument', $champsCommandeDoc) && $this->insertOne('commande', $champsCommande);
 
-            // Séparation des champs pour chaque table
-            $champsInsertionCommande = array_intersect_key($champs, array_flip($champsCommande));
-            $champsInsertionCommandeDocument = array_intersect_key($champs, array_flip($champsCommandeDocument));
+            //     // construction de la requête
+            //     $requeteCommande = "insert into commande (";
+            //     foreach ($champs as $key => $value) {
+            //         if (in_array($key, $champsCommande)) {
+            //             $requeteCommande .= "$key,";
+            //         }
+            //     }
+            //     // (enlève la dernière virgule)
+            //     $requeteCommande = substr($requeteCommande, 0, strlen($requeteCommande) - 1);
+            //     $requeteCommande .= ") values (";
+            //     foreach ($champs as $key => $value) {
+            //         $requeteCommande .= ":$key,";
+            //     }
+            //     // (enlève la dernière virgule)
+            //     $requeteCommande = substr($requeteCommande, 0, strlen($requeteCommande) - 1);
+            //     $requeteCommande .= ");";
+            //     return $this->conn->execute($requeteCommande, $champsCommande);
+            //     $requeteCommande = "insert into commande (";
+            //     foreach ($champs as $key => $value) {
+            //         if (in_array($key, $champsCommande)) {
+            //             $requeteCommande .= "$key,";
+            //         }
+            //     }
 
-            // Construction des requêtes pour la table "commande"
-            $requeteCommande = $this->construireRequeteInsertion('commande', $champsInsertionCommande);
+            //     // construction de la requête
+            //     $requeteCommandeDoc = "insert into commandedocument (";
+            //     foreach ($champs as $key => $value) {
+            //         if (in_array($key, $champsCommandeDoc)) {
+            //             $champsCommandeDoc .= "$key,";
+            //         }
+            //     }
+            //     // (enlève la dernière virgule)
+            //     $requeteCommandeDoc = substr($requeteCommandeDoc, 0, strlen($requeteCommandeDoc) - 1);
+            //     $requeteCommandeDoc .= ") values (";
+            //     foreach ($champs as $key => $value) {
+            //         $requeteCommandeDoc .= ":$key,";
+            //     }
+            //     // (enlève la dernière virgule)
+            //     $requeteCommandeDoc = substr($requeteCommandeDoc, 0, strlen($requeteCommandeDoc) - 1);
+            //     $requeteCommandeDoc .= ");";
+            //     return $this->conn->execute($requeteCommandeDoc, $champsCommandeDoc);
 
-            // Construction des requêtes pour la table "commandeDocument"
-            $requeteCommandeDocument = $this->construireRequeteInsertion('commandedocument', $champsInsertionCommandeDocument);
-
-            // Exécution des requêtes
-            $this->conn->execute($requeteCommande, $champsInsertionCommande);
-            $this->conn->execute($requeteCommandeDocument, $champsInsertionCommandeDocument);
         } else {
             return null;
         }
