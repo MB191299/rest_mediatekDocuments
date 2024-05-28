@@ -250,14 +250,38 @@ class AccessBDD
     public function delete($table, $champs)
     {
         if ($this->conn != null) {
-            // construction de la requête
-            $requete = "delete from $table where ";
-            foreach ($champs as $key => $value) {
-                $requete .= "$key=:$key and ";
+            switch ($table) {
+                case "lacommandedocument":
+                    return $this->doubleDelete($table, $champs);
+                default:
+                    // construction de la requête
+                    $requete = "delete from $table where ";
+                    foreach ($champs as $key => $value) {
+                        $requete .= "$key=:$key and ";
+                    }
+                    // (enlève le dernier and)
+                    $requete = substr($requete, 0, strlen($requete) - 5);
+                    return $this->conn->execute($requete, $champs);
             }
-            // (enlève le dernier and)
-            $requete = substr($requete, 0, strlen($requete) - 5);
-            return $this->conn->execute($requete, $champs);
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * suppression d'une ligne dans deux tables
+     * @param string $table nom de la table
+     * @param array $champs nom et valeur de chaque champs de la ligne
+     * @return true si l'ajout a fonctionné
+     */
+    public function doubleDelete($table, $champs)
+    {
+        if ($this->conn != null && $champs != null && $table != null) {
+            // Tableau des champs pour la table "commande"
+            $champsCommande = ['id' => $champs['Id'], 'dateCommande' => $champs['DateCommande'], 'montant' => $champs['Montant']];
+            $champsCommandeDoc = ['id' => $champs['Id'], 'nbExemplaire' => $champs['NbExemplaire'], 'idLivreDvd' => $champs['IdLivreDvd']];
+            $champsSuivi = ['id' => $champs['Id'], 'etapeSuivi' => $champs['EtapeSuivi']];
+            return $this->delete('suivi', $champsSuivi) && $this->delete('commandedocument', $champsCommandeDoc) && $this->delete('commande', $champsCommande);
         } else {
             return null;
         }
