@@ -52,7 +52,7 @@ class Controle
             $result = $this->accessBDD->select($table, $champs);
         }
         if (gettype($result) != "array" && ($result == false || $result == null)) {
-            $this->reponse(400, "requete invalide");
+            $this->reponse(400, "requete invalide 2");
         } else {
             $this->reponse(200, "OK", $result);
         }
@@ -82,7 +82,7 @@ class Controle
     {
         $result = $this->accessBDD->insertOne($table, $champs);
         if ($result == null || $result == false) {
-            $this->reponse(400, "requete invalide");
+            $this->reponse(400, "requete invalide 1");
         } else {
             $this->reponse(200, "OK");
         }

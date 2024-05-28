@@ -45,7 +45,7 @@ class AccessBDD
                 case "exemplaire":
                     return $this->selectAllExemplaires();
                 case "commandedocument":
-                    return $this->selectAllCommandesDocument();
+                    return $this->selectAllCommandesDocuments();
                 case "suivi":
                     return $this->selectAllSuiviCommande();
                 case "genre":
@@ -77,7 +77,7 @@ class AccessBDD
                     return $this->selectExemplairesRevue($champs['id']);
                 case "commandedocument":
                     return $this->selectCommandesDocument($champs['id']);
-                case "suivicommande":
+                case "suivi":
                     return $this->selectSuiviCommande($champs['id']);
                 default:
                     // cas d'un select sur une table avec recherche sur des champs
@@ -290,8 +290,6 @@ class AccessBDD
                     // (enlève la dernière virgule)
                     $requete = substr($requete, 0, strlen($requete) - 1);
                     $requete .= ");";
-                    echo $requete;
-
                     return $this->conn->execute($requete, $champs);
             }
         } else {
@@ -310,73 +308,14 @@ class AccessBDD
     {
         if ($this->conn != null && $champs != null && $table != null) {
             // Tableau des champs pour la table "commande"
-            $champsCommande = ['id' => $champs['Id'], 'dateCommande' => $champs['DateCmd'], 'montant' => $champs['Montant']];
-            $champsCommandeDoc = ['id' => $champs['Idb'], 'nbExemplaire' => $champs['NbExemplaires'], 'IdLivreDvd' => $champs['IdLivreDvd'], 'idSuivi' => $champs['IdSuivi']];
-            return $this->insertOne('commandedocument', $champsCommandeDoc) && $this->insertOne('commande', $champsCommande);
-
-            //     // construction de la requête
-            //     $requeteCommande = "insert into commande (";
-            //     foreach ($champs as $key => $value) {
-            //         if (in_array($key, $champsCommande)) {
-            //             $requeteCommande .= "$key,";
-            //         }
-            //     }
-            //     // (enlève la dernière virgule)
-            //     $requeteCommande = substr($requeteCommande, 0, strlen($requeteCommande) - 1);
-            //     $requeteCommande .= ") values (";
-            //     foreach ($champs as $key => $value) {
-            //         $requeteCommande .= ":$key,";
-            //     }
-            //     // (enlève la dernière virgule)
-            //     $requeteCommande = substr($requeteCommande, 0, strlen($requeteCommande) - 1);
-            //     $requeteCommande .= ");";
-            //     return $this->conn->execute($requeteCommande, $champsCommande);
-            //     $requeteCommande = "insert into commande (";
-            //     foreach ($champs as $key => $value) {
-            //         if (in_array($key, $champsCommande)) {
-            //             $requeteCommande .= "$key,";
-            //         }
-            //     }
-
-            //     // construction de la requête
-            //     $requeteCommandeDoc = "insert into commandedocument (";
-            //     foreach ($champs as $key => $value) {
-            //         if (in_array($key, $champsCommandeDoc)) {
-            //             $champsCommandeDoc .= "$key,";
-            //         }
-            //     }
-            //     // (enlève la dernière virgule)
-            //     $requeteCommandeDoc = substr($requeteCommandeDoc, 0, strlen($requeteCommandeDoc) - 1);
-            //     $requeteCommandeDoc .= ") values (";
-            //     foreach ($champs as $key => $value) {
-            //         $requeteCommandeDoc .= ":$key,";
-            //     }
-            //     // (enlève la dernière virgule)
-            //     $requeteCommandeDoc = substr($requeteCommandeDoc, 0, strlen($requeteCommandeDoc) - 1);
-            //     $requeteCommandeDoc .= ");";
-            //     return $this->conn->execute($requeteCommandeDoc, $champsCommandeDoc);
-
+            $champsCommande = ['id' => $champs['Id'], 'dateCommande' => $champs['DateCommande'], 'montant' => $champs['Montant']];
+            $champsCommandeDoc = ['id' => $champs['Id'], 'nbExemplaire' => $champs['NbExemplaire'], 'idLivreDvd' => $champs['IdLivreDvd']];
+            $champsSuivi = ['id' => $champs['Id'], 'etapeSuivi' => $champs['EtapeSuivi']];
+            return $this->insertOne('commande', $champsCommande) && $this->insertOne('commandedocument', $champsCommandeDoc) && $this->insertOne('suivi', $champsSuivi);
         } else {
             return null;
         }
     }
-
-    private function construireRequeteInsertion($table, $champs)
-    {
-        // Construction de la requête d'insertion
-        $requete = "INSERT INTO $table (";
-        foreach ($champs as $key => $value) {
-            $requete .= "$key,";
-        }
-        $requete = rtrim($requete, ',') . ") VALUES (";
-        foreach ($champs as $key => $value) {
-            $requete .= ":$key,";
-        }
-        $requete = rtrim($requete, ',') . ")";
-
-        return $requete;
-    }
-
 
     /**
      * modification d'une ligne dans une table
@@ -404,7 +343,7 @@ class AccessBDD
     }
 
     /**
-     * récupèration des informations d'un livre sur le suivi d'une commande.
+     * récupèration des informations d'un livre sur le suivi des commandes.
      * @return lignes de la requete
      */
     public function selectCommandesDocument($id)
@@ -412,13 +351,29 @@ class AccessBDD
         $param = array(
             "id" => $id
         );
-        $req = "select l.nbExemplaire, l.idLivreDvd, l.idSuivi, s.libelle, l.id, max(c.dateCommande) asdateCommande, sum(c.montant) as montant ";
-        $req .= "from commandedocument l join suivi s on s.id=l.idSuivi ";
-        $req .= "left join commande c on l.id=c.id ";
+        $req = "select l.nbExemplaire, l.idLivreDvd, s.etapeSuivi, l.id, c.dateCommande, c.montant ";
+        $req .= "from commande c ";
+        $req .= "left join commandedocument l on c.id=l.id ";
+        $req .= "left join suivi s on c.id=s.id ";
         $req .= "where l.idLivreDvd = :id ";
         $req .= "group by l.id ";
-        $req .= "order by dateCommande DESC";
+        $req .= "order by c.dateCommande DESC";
         return $this->conn->query($req, $param);
+    }
+
+    /**
+     * récupèration de toutes les commandes.
+     * @return lignes de la requete
+     */
+    public function selectAllCommandesDocuments()
+    {
+        $req = "select l.nbExemplaire, l.idLivreDvd, s.etapeSuivi, l.id, c.dateCommande, c.montant ";
+        $req .= "from commande c ";
+        $req .= "join commandedocument l on c.id=l.id ";
+        $req .= "left join suivi s on c.id=s.id ";
+        $req .= "group by l.id ";
+        $req .= "order by c.dateCommande DESC";
+        return $this->conn->query($req);
     }
 
     /**
